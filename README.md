@@ -20,11 +20,19 @@ A normalized JSON event store, search API, CLI, statistics, and deterministic ru
 ## Architecture
 ```mermaid
 flowchart LR
-  Input[Validated input] --> Core[Domain engine]
-  Core --> Store[(Durable store)]
-  CLI[CLI] --> Core
-  API[REST API] --> Core
-  Core --> Evidence[Results and evidence]
+  Apps[Application JSON logs] --> Ingest[Bounded ingestion]
+  Generator[SIMULATED sample generator] --> Ingest
+  Ingest --> Normalize[Schema normalizer]
+  Normalize --> Events[(Event store)]
+  Events --> Search[Search / filters / statistics]
+  Events --> Window[Time-window correlator]
+  Window --> Auth[Repeated login rule]
+  Window --> Volume[Frequency anomaly rule]
+  Events --> Privilege[Privilege-change rule]
+  Auth & Volume & Privilege --> Severity[Severity assignment]
+  Severity --> Alerts[Security alerts]
+  CLI[CLI] --> Search
+  API[REST API] --> Ingest
 ```
 See [architecture](docs/architecture.md).
 
