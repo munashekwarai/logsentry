@@ -1,39 +1,23 @@
 # LogSentry Architecture
 
-## System context
-
-LogSentry receives JSON events and normalizes them into a small allowlisted schema before analysis. Stored events support search and aggregate statistics. Detection has two distinct paths: time-window correlation for repeated authentication and event-volume patterns, and direct high-value detection for privilege changes. Rules return evidence such as source, count, and window alongside severity. CLI and REST adapters share the normalizer and rule engine.
-
-## Component diagram
+LogSentry separates event contracts, persistence, query, and detection. Producers cannot inject arbitrary event names into rule logic: values are converted to a small enum, timestamps require timezone context, IPs are parsed, metadata is bounded, and unique IDs make retries safe.
 
 ```mermaid
-flowchart LR
-  Apps[Application JSON logs] --> Ingest[Bounded ingestion]
-  Generator[SIMULATED sample generator] --> Ingest
-  Ingest --> Normalize[Schema normalizer]
-  Normalize --> Events[(Event store)]
-  Events --> Search[Search / filters / statistics]
-  Events --> Window[Time-window correlator]
-  Window --> Auth[Repeated login rule]
-  Window --> Volume[Frequency anomaly rule]
-  Events --> Privilege[Privilege-change rule]
-  Auth & Volume & Privilege --> Severity[Severity assignment]
-  Severity --> Alerts[Security alerts]
-  CLI[CLI] --> Search
-  API[REST API] --> Ingest
+sequenceDiagram
+ participant P as Log producer
+ participant I as Ingestion
+ participant R as SQLite repository
+ participant E as Rule engine
+ participant O as Operator
+ P->>I: structured event
+ I->>I: validate schema, IP, timestamp, size
+ I->>R: insert unique event ID
+ O->>E: evaluate bounded time range
+ E->>R: ordered normalized events
+ E->>E: group by source and sliding window
+ E-->>O: severity, window, summary, exact event IDs
 ```
 
-## Data and control flow
+The repository indexes timestamp, source-plus-time, and type-plus-time. Queries are parameterized and limited to 1,000 events. Rules are pure correlation over normalized events: failure burst counts attempts, password spray counts distinct actors, volume spike counts all source events, and privilege change fires directly on the high-value event.
 
-The solid arrows show runtime data or control flow. Dotted arrows, where present, describe policy rather than runtime connectivity. Domain decisions remain independent of CLI and HTTP delivery so they can be tested without binding sockets or paid services. Inputs are validated before persistence or outbound I/O, and evidence is retained at the point where the system makes an operational decision.
-
-## Trust boundaries
-
-1. **External input boundary:** network targets, telemetry, identity requests, documents, logs, or field records are untrusted.
-2. **Domain boundary:** validated values enter deterministic policy and state-transition logic.
-3. **Persistence boundary:** parameterized or structured writes protect stored operational evidence.
-4. **Operator boundary:** alerts, conflict choices, infrastructure deployment, and other consequential actions remain explicit operator responsibilities.
-
-## Failure behavior
-
-Adapters return explicit errors or states rather than manufacturing successful results. Timeouts and unavailable dependencies affect only the relevant operation. The limitations documented in the README define what cannot be inferred from the available evidence.
+This is deliberately an explainable small-team architecture. A streaming deployment would replace SQLite/query loading with partitioned storage and windowed processing while retaining the event and alert contracts.

@@ -1,0 +1,10 @@
+services:
+  logsentry:
+    build: .
+    ports: ["127.0.0.1:8003:8000"]
+    environment: {LOGSENTRY_DB: /data/logsentry.db}
+    volumes: ["logsentry_data:/data"]
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: ["no-new-privileges:true"]
+volumes: {logsentry_data: {}}

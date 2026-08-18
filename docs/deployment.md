@@ -1,3 +1,11 @@
-# Deployment
+# LogSentry Deployment
 
-Create an isolated runtime, install pinned dependencies from the project metadata, configure environment values outside version control, run tests, then start the documented service behind a TLS reverse proxy. Restrict the listener and database to required principals, collect structured logs, monitor health, and test encrypted backup restoration before relying on the service. Roll back by deploying the preceding immutable revision and restoring only schema-compatible data.
+```bash
+python -m venv .venv && . .venv/bin/activate
+pip install -e '.[dev]'
+LOGSENTRY_DB=/var/lib/logsentry/logsentry.db uvicorn app.api:app --host 127.0.0.1 --port 8003
+```
+
+Or use `docker compose up --build -d`. Add an authenticating TLS proxy before remote access. Grant the service account write access only to the database directory. Define retention based on privacy and investigation requirements.
+
+Use SQLite online backup or stop writers before copying. Encrypt backups and test search plus alert reconstruction after restore. For higher volumes, preserve normalized event IDs while moving to a streaming broker and scalable time-indexed store.
